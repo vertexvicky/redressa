@@ -9,7 +9,7 @@
   },
   "vars": {
     "FIREBASE_PROJECT_ID": "redressa-b804f",
-    "FRONTEND_ORIGIN": "https://redressa.thevertexvicky.workers.dev",
+    "FRONTEND_ORIGIN": "https://redressa-web.thevertexvicky.workers.dev",
     "DEMO_SESSION_TTL_HOURS": "24",
     "CONTACT_WINDOW_START": "09:00",
     "CONTACT_WINDOW_END": "20:00",

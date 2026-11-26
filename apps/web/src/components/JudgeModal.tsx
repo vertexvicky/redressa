@@ -343,6 +343,7 @@ export function JudgeModal({ open, onClose }: JudgeModalProps) {
               >
                 <option value="water">Water</option>
                 <option value="transport">Transport</option>
+                <option value="construction">Construction &amp; Site Safety</option>
                 <option value="roads">Roads &amp; Lights</option>
                 <option value="rti">RTI / Info</option>
               </select>

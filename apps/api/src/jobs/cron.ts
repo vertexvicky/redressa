@@ -12,6 +12,8 @@ import {
 } from "../db/schema.js";
 import type { Env } from "../env.js";
 import { writeAuditLog } from "../services/audit.js";
+import { retryPendingAiCallEvents } from "../services/aiCallEngine.js";
+import { finalizeDueWithdrawals } from "../services/withdrawal.js";
 import { processAgentEvent } from "../agent/orchestrator.js";
 import { toolEscalateCase } from "../agent/tools/case.js";
 import { clampToIstContactWindow } from "../agent/tools/schedule.js";
@@ -137,6 +139,9 @@ export async function runFiveMinuteCron(env: Env): Promise<void> {
       }
     }
   }
+
+  await finalizeDueWithdrawals(db, now);
+  await retryPendingAiCallEvents(db, env);
 }
 
 export async function runHourlyCron(env: Env): Promise<void> {

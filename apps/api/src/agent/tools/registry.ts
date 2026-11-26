@@ -303,7 +303,7 @@ export async function executeAgentTool(
     }
     case "save_verdict": {
       const args = ToolArgSchemas.save_verdict.parse(rawArgs);
-      return toolSaveVerdict(db, args.case_id, args.verdict_json);
+      return toolSaveVerdict(db, args.case_id, args.verdict_json, env);
     }
     case "escalate_case": {
       const args = ToolArgSchemas.escalate_case.parse(rawArgs);

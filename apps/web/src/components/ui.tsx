@@ -72,6 +72,7 @@ export function StatusBadge({ status }: { status: string }) {
   } else if (normalized === "needs_review" || normalized === "unverified" || normalized === "reply_returned") {
     style = "bg-[var(--disputed-bg)] text-[var(--disputed-fg)] border-[var(--disputed-border)]";
     if (normalized === "needs_review") label = "closure disputed";
+    if (normalized === "unverified") label = "withdrawn · unverified";
   } else if (normalized === "not_resolved" || normalized === "reopened") {
     style = "bg-[var(--reopened-bg)] text-[var(--reopened-fg)] border-[var(--reopened-border)]";
   } else if (normalized === "filed" || normalized === "assigned" || normalized === "in_progress") {

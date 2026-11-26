@@ -11,6 +11,7 @@ import { CitizenPage } from "./pages/citizen/CitizenPage.js";
 import { DashboardPage } from "./pages/dashboard/DashboardPage.js";
 import { LandingPage } from "./pages/landing/LandingPage.js";
 import { OfficerPage } from "./pages/officer/OfficerPage.js";
+import { RecordsPage } from "./pages/records/RecordsPage.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,6 +108,10 @@ function AppShell() {
             }
           />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route
+            path="/records"
+            element={profile ? <RecordsPage /> : <Navigate to="/" replace />}
+          />
           <Route
             path="/admin"
             element={profile ? <AdminPage user={profile} /> : <Navigate to="/" replace />}

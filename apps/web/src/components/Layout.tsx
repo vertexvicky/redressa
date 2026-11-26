@@ -35,8 +35,13 @@ export function Layout({ user, onLogout, onOpenJudge, children }: LayoutProps) {
     { to: "/", label: t("nav.home"), show: true },
     {
       to: "/citizen",
-      label: "User Cases",
+      label: "My Petitions",
       show: Boolean(user && (user.role === "citizen" || user.role === "admin"))
+    },
+    {
+      to: "/records",
+      label: "Records Index",
+      show: Boolean(user)
     },
     {
       to: "/officer",

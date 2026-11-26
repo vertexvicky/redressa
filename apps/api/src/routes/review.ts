@@ -12,6 +12,7 @@ import {
 } from "../db/schema.js";
 import type { Env } from "../env.js";
 import { writeAuditLog } from "../services/audit.js";
+import { triggerAiCallNonBlocking } from "../services/aiCallEngine.js";
 import { transition } from "../services/transition.js";
 
 export const reviewRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -187,7 +188,7 @@ reviewRoutes.post("/:id/decide", async (c) => {
             { type: "reviewer", id: user.id },
             "Reviewer correction evaluation"
           );
-          await transition(
+          const result = await transition(
             db,
             ticket.id,
             "verified_resolved",
@@ -195,6 +196,20 @@ reviewRoutes.post("/:id/decide", async (c) => {
             `Reviewer corrected verdict: ${parsed.data.decision_note}`,
             { closedAt: now }
           );
+          if (result.previousStatus !== "verified_resolved" && result.previousStatus !== "closed_final") {
+            let waitUntil: ((p: Promise<unknown>) => void) | undefined;
+            try {
+              waitUntil = c.executionCtx.waitUntil.bind(c.executionCtx);
+            } catch {
+              waitUntil = undefined;
+            }
+            triggerAiCallNonBlocking(
+              db,
+              c.env,
+              { ticketId: ticket.id, closedAt: now, closedBy: user.id },
+              waitUntil
+            );
+          }
         }
       }
     }

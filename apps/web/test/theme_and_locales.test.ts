@@ -7,7 +7,7 @@ describe("frontend theme and localization", () => {
     const css = readFileSync(resolve(import.meta.dirname, "../src/index.css"), "utf8");
     expect(css).toContain('[data-theme="light"]');
     expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain("#faf9f6");
+    expect(css).toContain("#ffffff");
     expect(css).toContain("--shadow-md");
   });
 

@@ -31,15 +31,72 @@ export const ResponseRequirementInputSchema = z.object({
   evidence_required: z.boolean()
 });
 
+export const ISSUE_DOMAINS = [
+  "construction_site",
+  "physical_infrastructure",
+  "public_transport",
+  "utility_service",
+  "administrative_rti",
+  "other"
+] as const;
+
+export const PROOF_MODES = [
+  "video_inspection",
+  "photo_or_document",
+  "official_record"
+] as const;
+
 export const QuestionAuditSchema = z.object({
   is_clear: z.boolean(),
   specificity_score: z.number().min(0).max(1),
   suggested_department: z.string().min(2).max(160),
   jurisdiction_note: z.string().max(400),
   is_duplicate: z.boolean(),
-  clarifying_questions: z.array(z.string().min(4).max(240)).max(3)
+  clarifying_questions: z.array(z.string().min(4).max(240)).max(3),
+  issue_domain: z.enum(ISSUE_DOMAINS).optional(),
+  required_proof_mode: z.enum(PROOF_MODES).optional(),
+  requires_video_inspection: z.boolean().optional(),
+  pre_analysis_summary: z.string().max(500).optional(),
+  requested_footage_shots: z.array(z.string().min(3).max(200)).max(6).optional()
 });
 export type QuestionAuditResult = z.infer<typeof QuestionAuditSchema>;
+
+export const SiteInspectionResultSchema = z.object({
+  assessment: z.enum([
+    "issue_confirmed",
+    "issue_partially_visible",
+    "not_visible",
+    "unusable_footage"
+  ]),
+  confidence: z.number().min(0).max(1),
+  summary: z.string(),
+  observations: z
+    .array(
+      z.object({
+        label: z.string(),
+        detail: z.string(),
+        timestamp: z.string().optional().nullable(),
+        severity: z.enum(["info", "low", "medium", "high"])
+      })
+    )
+    .default([]),
+  safety_flags: z
+    .array(
+      z.object({
+        hazard: z.string(),
+        urgency: z.enum(["monitor", "soon", "immediate"])
+      })
+    )
+    .default([]),
+  urgent_hazard: z.boolean().default(false),
+  missing_footage: z
+    .array(z.object({ shot: z.string(), reason: z.string() }))
+    .default([]),
+  recommended_next_steps: z.array(z.string()).default([]),
+  status_update: z.string(),
+  context_brief: z.string()
+});
+export type SiteInspectionResult = z.infer<typeof SiteInspectionResultSchema>;
 
 export const ExpectationContractPayloadSchema = z.object({
   core_question: z.string().min(5).max(2000),

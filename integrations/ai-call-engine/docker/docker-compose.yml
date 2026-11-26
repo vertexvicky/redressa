@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  ai-call-engine:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${PORT:-4000}:4000"
+    env_file:
+      - ../.env
+    volumes:
+      - engine-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Uncomment for production queue with Redis
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+
+volumes:
+  engine-data:
+  # redis-data:

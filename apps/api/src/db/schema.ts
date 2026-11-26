@@ -522,3 +522,91 @@ export const processedEvents = sqliteTable("processed_events", {
   id: text("id").primaryKey(),
   processedAt: integer("processed_at").notNull()
 });
+
+export const aiCallEvents = sqliteTable(
+  "ai_call_events",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull().default("REQUEST_CLOSED"),
+    deliveryStatus: text("delivery_status").notNull().default("pending"),
+    engineEventId: text("engine_event_id"),
+    engineCallId: text("engine_call_id"),
+    callStatus: text("call_status"),
+    callOutcome: text("call_outcome"),
+    callDurationSeconds: integer("call_duration_seconds"),
+    skipReason: text("skip_reason"),
+    lastError: text("last_error"),
+    attempts: integer("attempts").notNull().default(0),
+    nextRetryAt: integer("next_retry_at"),
+    closedAt: integer("closed_at").notNull(),
+    closedBy: text("closed_by"),
+    sentAt: integer("sent_at"),
+    completedAt: integer("completed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull()
+  },
+  (table) => [
+    uniqueIndex("uq_ai_call_events_ticket_event").on(table.ticketId, table.eventType),
+    index("idx_ai_call_events_delivery").on(table.deliveryStatus, table.nextRetryAt),
+    index("idx_ai_call_events_engine_call").on(table.engineCallId)
+  ]
+);
+
+export const replyIndex = sqliteTable(
+  "reply_index",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    replyId: text("reply_id"),
+    departmentId: text("department_id"),
+    category: text("category").notNull(),
+    question: text("question").notNull(),
+    finalReply: text("final_reply").notNull(),
+    rounds: integer("rounds").notNull().default(1),
+    autoComposed: integer("auto_composed").notNull().default(0),
+    isDemo: integer("is_demo").notNull().default(0),
+    finalizedAt: integer("finalized_at").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull()
+  },
+  (table) => [
+    index("idx_reply_index_time").on(table.finalizedAt),
+    index("idx_reply_index_ticket").on(table.ticketId)
+  ]
+);
+
+export const withdrawalRequests = sqliteTable(
+  "withdrawal_requests",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    citizenId: text("citizen_id")
+      .notNull()
+      .references(() => users.id),
+    reason: text("reason").notNull(),
+    questions: text("questions", { mode: "json" })
+      .$type<Array<{ id: string; text: string }>>()
+      .notNull(),
+    answers: text("answers", { mode: "json" }).$type<
+      Array<{ question_id: string; answer: string; note?: string }>
+    >(),
+    ownDecision: text("own_decision"),
+    outcome: text("outcome"),
+    status: text("status").notNull().default("pending"),
+    effectiveAt: integer("effective_at").notNull(),
+    finalizedAt: integer("finalized_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull()
+  },
+  (table) => [
+    index("idx_withdrawal_status_effective").on(table.status, table.effectiveAt),
+    index("idx_withdrawal_ticket").on(table.ticketId)
+  ]
+);

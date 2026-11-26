@@ -12,45 +12,56 @@ export const DEMO_TEST_QUERIES: DemoQueryPreset[] = [
   {
     id: "bus_stop",
     label: "Bus Skipping Stop",
-    title: "Express buses skipping GH stop during morning peak",
+    title: "Express buses stopping at next stop instead of GH stop",
     question:
-      "Route 21G and 47A express buses have been skipping the Government Hospital bus stop between 8:00 AM and 9:30 AM on weekdays. Please issue a circular enforcing mandatory halts and share the circular number and inspection schedule.",
+      "Why are express buses stopping at the next stop instead of the GH stop?",
     category: "transport",
     locationText: "GH Bus Stop, Main Road",
     sampleCompleteReply:
-      "Depot Circular MTC/SLM/OPS/2026-114 issued on 26 Nov 2026 mandates 2-minute halts for Routes 21G and 47A at GH Bus Stop during 8:00 AM - 9:30 AM. Traffic Inspectors will run checks every Mon/Wed/Fri morning for 4 weeks."
+      "Express buses were stopping at the next stop due to temporary road work near the GH stop. The work is now cleared, and express buses will stop at the GH stop from tomorrow."
+  },
+  {
+    id: "construction_site",
+    label: "Construction Site (Video)",
+    title: "Open road pit near school gate without barriers",
+    question:
+      "There is an open drainage pit near Govt High School Gate 2 with no safety barriers. When will barriers be placed?",
+    category: "construction",
+    locationText: "Govt High School Gate 2, Ward 14",
+    sampleCompleteReply:
+      "Safety barriers and warning cones were installed around the pit near Gate 2 today, and the concrete cover will be placed by Friday."
   },
   {
     id: "hostel_water",
     label: "Hostel Water Outage",
-    title: "No drinking water supply in Hostel Block C for 4 days",
+    title: "No drinking water in Hostel Block C",
     question:
-      "The RO water purifier and overhead tank line in Hostel Block C (2nd and 3rd floors) have had zero water supply since 22 November. Please share the maintenance work order number, technician inspection date, and confirm when water supply is restored.",
+      "There has been no drinking water in Hostel Block C for 3 days. What caused it and when will water return?",
     category: "water",
     locationText: "Hostel Block C, 2nd Floor",
     sampleCompleteReply:
-      "Work Order #WO-2026-884 executed on 26 Nov 2026. Plumber team inspected Hostel Block C 2nd floor tank line and replaced the faulty solenoid valve at 10:30 AM; full water pressure verified across all taps."
+      "A damaged pipe valve on the 2nd floor tank line caused the outage. The valve was replaced today at 10:30 AM and drinking water is now restored."
   },
   {
     id: "streetlights",
     label: "Streetlights Out",
-    title: "6 LED streetlights out on 4th Cross Street",
+    title: "Streetlights not working on 4th Cross Street",
     question:
-      "All 6 LED streetlights between Plot 14 and the corner junction on 4th Cross Street have been non-functional since 12 November. Previous tickets were closed without inspection. Please provide the repair job ID and restore lighting.",
+      "Six streetlights on 4th Cross Street have been off for a week. When will they be repaired?",
     category: "roads",
     locationText: "4th Cross Street, Anna Nagar",
     sampleCompleteReply:
-      "Electrical Maintenance Job #EM-2026-419 completed on 26 Nov 2026. Damaged feeder relay at Pole #16 replaced and all 6 LED luminaires tested operational at 6:15 PM."
+      "A faulty power relay on Pole 16 was replaced today, and all six streetlights on 4th Cross Street are working again."
   },
   {
     id: "rti_compensation",
     label: "RTI File Status",
-    title: "Status of road widening compensation for Survey No. 112/4",
+    title: "Status of road widening compensation file",
     question:
-      "Under RTI, please provide the current status of the land acquisition compensation file for Survey No. 112/4 submitted on 14 Aug 2026, the exact date the disbursement order was signed, and the payment reference number.",
+      "What is the current status of my road widening compensation application for Survey No. 112/4, and when will it be paid?",
     category: "rti",
     locationText: "Taluk Office, Ward 18",
     sampleCompleteReply:
-      "File Ref #LAQ/W18/2026-1124 approved on 20 Nov 2026. Disbursement Order signed by Special Tahsildar on 21 Nov 2026 and NEFT Ref #UTR9920148812 credited on 24 Nov 2026."
+      "Your compensation application for Survey No. 112/4 is approved, and the payment has been scheduled for bank transfer this Friday."
   }
 ];

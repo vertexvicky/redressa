@@ -3,6 +3,7 @@ import { CitizenFeedbackSchema, TicketContestSchema, TicketWithdrawSchema } from
 import { Hono } from "hono";
 import { jsonError, type AppVariables } from "../auth/guard.js";
 import {
+  aiCallEvents,
   contractCriteria,
   conversations,
   departmentContacts,
@@ -15,13 +16,21 @@ import {
   responseRequirements,
   ticketEvents,
   tickets,
-  verificationCases
+  verificationCases,
+  withdrawalRequests
 } from "../db/schema.js";
 import type { Env } from "../env.js";
 import { processAgentEvent } from "../agent/orchestrator.js";
 import { writeAuditLog } from "../services/audit.js";
 import { createSignedEvidenceDownloadPath } from "../services/storage.js";
 import { transition } from "../services/transition.js";
+import {
+  WITHDRAWAL_COOLING_OFF_MS,
+  computeWithdrawalOutcome,
+  finalizeWithdrawal,
+  loadContractQuestions,
+  loadLatestWithdrawal
+} from "../services/withdrawal.js";
 
 export const ticketRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -69,7 +78,7 @@ ticketRoutes.get("/:id", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Access denied");
   }
 
-  const [contracts, replies, contacts, ticketEvidence, cases, convos, dept] = await Promise.all([
+  const [contracts, replies, contacts, ticketEvidence, cases, convos, dept, aiCalls] = await Promise.all([
     db
       .select()
       .from(expectationContracts)
@@ -94,7 +103,22 @@ ticketRoutes.get("/:id", async (c) => {
     db.select().from(conversations).where(eq(conversations.ticketId, id)),
     ticket.departmentId
       ? db.select().from(departments).where(eq(departments.id, ticket.departmentId)).limit(1)
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    db
+      .select({
+        id: aiCallEvents.id,
+        deliveryStatus: aiCallEvents.deliveryStatus,
+        callStatus: aiCallEvents.callStatus,
+        callOutcome: aiCallEvents.callOutcome,
+        callDurationSeconds: aiCallEvents.callDurationSeconds,
+        skipReason: aiCallEvents.skipReason,
+        sentAt: aiCallEvents.sentAt,
+        completedAt: aiCallEvents.completedAt
+      })
+      .from(aiCallEvents)
+      .where(eq(aiCallEvents.ticketId, id))
+      .orderBy(desc(aiCallEvents.createdAt))
+      .limit(1)
   ]);
 
   const currentContract = contracts.find((ct) => ct.isCurrent === 1) ?? contracts[0] ?? null;
@@ -143,7 +167,9 @@ ticketRoutes.get("/:id", async (c) => {
     evidence: evidenceWithUrls,
     verificationCase: latestCase,
     signals,
-    conversations: convos
+    conversations: convos,
+    aiCall: aiCalls[0] ?? null,
+    withdrawal: ticket.citizenId === user.id ? await loadLatestWithdrawal(db, id) : null
   });
 });
 
@@ -174,59 +200,145 @@ ticketRoutes.post("/:id/withdraw", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Not ticket owner");
   }
 
-  await transition(
-    db,
-    id,
-    "closure_claimed",
-    { type: user.isDemo ? "judge" : "citizen", id: user.id },
-    `Citizen withdrawal: ${parsed.data.reason}`
-  );
+  const existing = await loadLatestWithdrawal(db, id);
+  if (existing && existing.status === "pending") {
+    return c.json({ withdrawal: existing });
+  }
 
   const now = Date.now();
-  const caseId = crypto.randomUUID();
-  await db.insert(verificationCases).values({
-    id: caseId,
+  const questions = await loadContractQuestions(db, id);
+  const requestId = crypto.randomUUID();
+  await db.insert(withdrawalRequests).values({
+    id: requestId,
     ticketId: id,
-    trigger: "citizen_withdrawn",
-    startedAt: now,
-    status: "open",
+    citizenId: user.id,
+    reason: parsed.data.reason,
+    questions,
+    status: "pending",
+    effectiveAt: now + WITHDRAWAL_COOLING_OFF_MS,
     createdAt: now,
     updatedAt: now
   });
 
-  const convId = crypto.randomUUID();
-  await db.insert(conversations).values({
-    id: convId,
-    ticketId: id,
-    verificationCaseId: caseId,
-    kind: "closure",
-    channel: "web_chat",
-    status: "active",
-    createdAt: now,
-    updatedAt: now
-  });
-
-  await db.insert(messages).values({
+  await db.insert(ticketEvents).values({
     id: crypto.randomUUID(),
-    conversationId: convId,
-    sender: "citizen",
-    text: `Withdrawal reason: ${parsed.data.reason}`,
-    language: ticket.language === "ta" ? "ta" : "en",
+    ticketId: id,
+    actorType: user.isDemo ? "judge" : "citizen",
+    actorId: user.id,
+    eventType: "withdrawal_requested",
+    payload: { requestId },
+    occurredAt: now,
     createdAt: now,
     updatedAt: now
   });
 
-  await processAgentEvent(db, c.env, {
-    eventId: crypto.randomUUID(),
-    eventType: "closure_claimed",
-    ticketId: id,
-    verificationCaseId: caseId,
-    actorId: user.id
+  await writeAuditLog(db, {
+    actorType: user.isDemo ? "judge" : "citizen",
+    actorId: user.id,
+    action: "withdrawal_requested",
+    entityType: "ticket",
+    entityId: id,
+    diff: { requestId, effectiveAt: now + WITHDRAWAL_COOLING_OFF_MS }
   });
 
-  return c.json({ ok: true, verificationCaseId: caseId });
+  const created = await loadLatestWithdrawal(db, id);
+  return c.json({ withdrawal: created }, 201);
 });
 
+ticketRoutes.post("/:id/withdraw/answers", async (c) => {
+  const user = c.get("user")!;
+  const db = c.get("db");
+  const id = c.req.param("id");
+  const body = (await c.req.json()) as {
+    answers?: Array<{ question_id?: string; answer?: string; note?: string }>;
+    own_decision?: string;
+    confirm_now?: boolean;
+  };
+
+  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
+  if (!ticket) return jsonError(c, 404, "NOT_FOUND", "Ticket not found");
+  if (ticket.citizenId !== user.id && !user.isDemo) {
+    return jsonError(c, 403, "FORBIDDEN", "Not ticket owner");
+  }
+
+  const request = await loadLatestWithdrawal(db, id);
+  if (!request || request.status !== "pending") {
+    return jsonError(c, 404, "NO_PENDING_WITHDRAWAL", "No pending withdrawal for this ticket");
+  }
+
+  const allowedAnswers = new Set(["yes", "no", "partly"]);
+  const validIds = new Set(request.questions.map((q) => q.id));
+  const answers = (body.answers ?? [])
+    .filter(
+      (entry) =>
+        typeof entry.question_id === "string" &&
+        validIds.has(entry.question_id) &&
+        typeof entry.answer === "string" &&
+        allowedAnswers.has(entry.answer)
+    )
+    .map((entry) => ({
+      question_id: entry.question_id as string,
+      answer: entry.answer as string,
+      ...(entry.note ? { note: String(entry.note).slice(0, 500) } : {})
+    }));
+
+  const ownDecision = ["own_decision", "prefer_not_to_say", "need_help"].includes(
+    body.own_decision ?? ""
+  )
+    ? (body.own_decision as string)
+    : null;
+  const outcome = computeWithdrawalOutcome(request.questions, answers);
+  const now = Date.now();
+
+  await db
+    .update(withdrawalRequests)
+    .set({ answers, ownDecision, outcome, updatedAt: now })
+    .where(eq(withdrawalRequests.id, request.id));
+
+  if (body.confirm_now === true) {
+    await finalizeWithdrawal(db, request.id);
+  }
+
+  const updated = await loadLatestWithdrawal(db, id);
+  return c.json({ withdrawal: updated });
+});
+
+ticketRoutes.post("/:id/withdraw/cancel", async (c) => {
+  const user = c.get("user")!;
+  const db = c.get("db");
+  const id = c.req.param("id");
+
+  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
+  if (!ticket) return jsonError(c, 404, "NOT_FOUND", "Ticket not found");
+  if (ticket.citizenId !== user.id && !user.isDemo) {
+    return jsonError(c, 403, "FORBIDDEN", "Not ticket owner");
+  }
+
+  const request = await loadLatestWithdrawal(db, id);
+  if (!request || request.status !== "pending") {
+    return jsonError(c, 404, "NO_PENDING_WITHDRAWAL", "No pending withdrawal for this ticket");
+  }
+
+  const now = Date.now();
+  await db
+    .update(withdrawalRequests)
+    .set({ status: "cancelled", finalizedAt: now, updatedAt: now })
+    .where(eq(withdrawalRequests.id, request.id));
+  await db.insert(ticketEvents).values({
+    id: crypto.randomUUID(),
+    ticketId: id,
+    actorType: user.isDemo ? "judge" : "citizen",
+    actorId: user.id,
+    eventType: "withdrawal_cancelled",
+    payload: { requestId: request.id },
+    occurredAt: now,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const updated = await loadLatestWithdrawal(db, id);
+  return c.json({ withdrawal: updated });
+});
 ticketRoutes.post("/:id/contest", async (c) => {
   const user = c.get("user")!;
   const db = c.get("db");

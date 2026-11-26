@@ -7,11 +7,13 @@ import {
   FileText,
   Paperclip,
   Send,
+  Video,
   X
 } from "lucide-react";
 import type { MeProfile } from "../../components/Layout.js";
 import { Button, Card, StatusBadge } from "../../components/ui.js";
 import { apiFetch, resolveApiUrl, uploadEvidenceFile } from "../../lib/api.js";
+import { DEMO_TEST_QUERIES } from "../../lib/demoQueries.js";
 
 interface OfficerTicket {
   id: string;
@@ -26,6 +28,18 @@ interface OfficerDetail {
   ticket: OfficerTicket & { originalQuestion: string };
   contract: {
     desiredOutcome: string;
+    questionAuditJson?: {
+      requires_video_inspection?: boolean;
+      siteInspection?: {
+        latest?: {
+          assessment: string;
+          confidence: number;
+          summary: string;
+          status_update: string;
+          urgent_hazard: boolean;
+        } | null;
+      };
+    } | null;
     responseRequirements: Array<{
       id: string;
       label: string;
@@ -172,6 +186,25 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
 
   const latestReturned = detail?.replies[0]?.returned === 1 ? detail.replies[0] : null;
   const citizenFiles = detail?.evidence.filter((ev) => ev.uploaderId === detail.ticket.citizenId) ?? [];
+  const matchingDemo = detail
+    ? DEMO_TEST_QUERIES.find(
+        (preset) => preset.title.trim().toLowerCase() === detail.ticket.title.trim().toLowerCase()
+      ) ?? null
+    : null;
+
+  const buildCompleteDemoReply = () => {
+    if (matchingDemo) {
+      return matchingDemo.sampleCompleteReply;
+    }
+    const reqs = detail?.contract?.responseRequirements ?? [];
+    if (reqs.length > 0) {
+      const details = reqs
+        .map((req, idx) => `${req.label}: Verified Ref #RD-2026-${410 + idx} on 26 Nov 2026`)
+        .join(". ");
+      return `Official inspection and corrective action completed for "${detail?.ticket.title ?? "this petition"}". ${details}. Status is confirmed and open for petitioner verification.`;
+    }
+    return DEMO_TEST_QUERIES[0]!.sampleCompleteReply;
+  };
 
   return (
     <div className="space-y-6">
@@ -256,6 +289,23 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                 <StatusBadge status={detail.ticket.status} />
               </div>
 
+              {detail.contract?.questionAuditJson?.siteInspection?.latest && (
+                <div className="silk-subtle p-3.5 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[var(--accent)]">
+                      AI Site Video Evaluation
+                    </span>
+                    <span className="font-mono-code text-[var(--text-muted)]">
+                      {detail.contract.questionAuditJson.siteInspection.latest.assessment.replace(/_/g, " ")} ·{" "}
+                      {Math.round(detail.contract.questionAuditJson.siteInspection.latest.confidence * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[var(--text-secondary)]">
+                    {detail.contract.questionAuditJson.siteInspection.latest.summary}
+                  </p>
+                </div>
+              )}
+
               {detail.ticket.status === "reopened" && detail.verificationCase?.reasons?.[0] && (
                 <div className="p-3.5 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs">
                   <strong>Applicant Feedback:</strong> {detail.verificationCase.reasons[0]}
@@ -285,7 +335,11 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
                     >
-                      <FileText className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      {ev.mime.startsWith("video/") ? (
+                        <Video className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      )}
                       <span>Applicant Attachment ({ev.mime})</span>
                     </a>
                   ))}
@@ -294,9 +348,27 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Official Response
-                  </label>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                    <label className="block text-xs font-medium text-[var(--text-secondary)]">
+                      Official Response
+                    </label>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setReplyText("Action taken and issue resolved.")}
+                        className="px-2.5 py-1 rounded-lg border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] text-[11px] font-medium cursor-pointer hover:opacity-90"
+                      >
+                        Fill Vague Reply (AI returns)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReplyText(buildCompleteDemoReply())}
+                        className="px-2.5 py-1 rounded-lg border border-[var(--verified-border)] bg-[var(--verified-bg)] text-[var(--verified-fg)] text-[11px] font-medium cursor-pointer hover:opacity-90"
+                      >
+                        Fill Complete Demo Reply
+                      </button>
+                    </div>
+                  </div>
                   <textarea
                     rows={4}
                     value={replyText}

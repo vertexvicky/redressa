@@ -12,10 +12,12 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { demoRoutes } from "./routes/demo.js";
 import { evidencePublicFileRoutes, evidenceRoutes } from "./routes/evidence.js";
 import { intakeRoutes } from "./routes/intake.js";
+import { integrationRoutes } from "./routes/integrations.js";
 import { meRoutes } from "./routes/me.js";
 import { caseMessageRoutes } from "./routes/messages.js";
 import { officerRoutes } from "./routes/officer.js";
 import { reviewRoutes } from "./routes/review.js";
+import { recordRoutes } from "./routes/records.js";
 import { ticketRoutes } from "./routes/tickets.js";
 import { voiceRoutes } from "./routes/voice.js";
 
@@ -49,10 +51,17 @@ app.use("*", async (c, next) => {
 
 app.use("*", async (c, next) => {
   const allowedOrigin = c.env.FRONTEND_ORIGIN || "http://localhost:5173";
+  const allowedOrigins = new Set([
+    allowedOrigin,
+    "https://redressa-web.thevertexvicky.workers.dev",
+    "https://redressa.thevertexvicky.workers.dev",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+  ]);
   const middleware = cors({
     origin: (origin) => {
       if (!origin) return allowedOrigin;
-      if (origin === allowedOrigin || origin === "http://localhost:5173" || origin === "http://127.0.0.1:5173") {
+      if (allowedOrigins.has(origin)) {
         return origin;
       }
       return allowedOrigin;
@@ -81,6 +90,7 @@ app.get("/health", async (c) => {
 
 app.route("/api/v1/dashboard", dashboardRoutes);
 app.route("/api/v1/evidence", evidencePublicFileRoutes);
+app.route("/api/v1/integrations", integrationRoutes);
 
 const authed = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 authed.use("*", authMiddleware);
@@ -88,6 +98,7 @@ authed.route("/me", meRoutes);
 authed.route("/intake", intakeRoutes);
 authed.route("/tickets", ticketRoutes);
 authed.route("/evidence", evidenceRoutes);
+authed.route("/records", recordRoutes);
 authed.route("/cases", caseMessageRoutes);
 authed.route("/officer", officerRoutes);
 authed.route("/review", reviewRoutes);

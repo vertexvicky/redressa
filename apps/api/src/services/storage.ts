@@ -19,6 +19,8 @@ export const ALLOWED_EVIDENCE_LIMITS: Record<string, number> = {
   "image/png": 15 * 1024 * 1024,
   "image/webp": 15 * 1024 * 1024,
   "video/mp4": 50 * 1024 * 1024,
+  "video/webm": 50 * 1024 * 1024,
+  "video/quicktime": 50 * 1024 * 1024,
   "application/pdf": 20 * 1024 * 1024,
   "text/plain": 5 * 1024 * 1024,
   "audio/mp4": 20 * 1024 * 1024,
@@ -49,7 +51,7 @@ export async function storeEvidenceFile(params: {
   fileName: string;
   mime: string;
   bytes: Uint8Array;
-  geo?: { lat: number; lng: number } | null;
+  geo?: Record<string, unknown> | null;
   scanner?: VirusScanner;
 }) {
   const maxSize = ALLOWED_EVIDENCE_LIMITS[params.mime];

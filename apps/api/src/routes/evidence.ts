@@ -45,6 +45,8 @@ evidenceRoutes.post("/", async (c) => {
     else if (lower.endsWith(".webp")) mime = "image/webp";
     else if (lower.endsWith(".txt") || lower.endsWith(".csv") || lower.endsWith(".log")) mime = "text/plain";
     else if (lower.endsWith(".mp4")) mime = "video/mp4";
+    else if (lower.endsWith(".webm")) mime = "video/webm";
+    else if (lower.endsWith(".mov")) mime = "video/quicktime";
     else mime = "application/octet-stream";
   }
 

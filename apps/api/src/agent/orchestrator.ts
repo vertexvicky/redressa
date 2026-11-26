@@ -25,6 +25,7 @@ import { toolGetCase } from "./tools/case.js";
 import {
   assignDepartmentFromAudit,
   generateDefaultContractForTicket,
+  toolCheckQuestionQuality,
   toolCheckReplyAgainstContract,
   toolCreateExpectationContract,
   toolReturnReplyToOfficer
@@ -107,25 +108,7 @@ export async function runIntakeAudit(
     [conv] = await db.select().from(conversations).where(eq(conversations.id, convId)).limit(1);
   }
 
-  const words = ticket.originalQuestion.trim().split(/\s+/).filter(Boolean);
-  const qLower = ticket.originalQuestion.toLowerCase();
-  const deptGuess =
-    /bus|transport|stop|route/i.test(`${qLower} ${ticket.category}`)
-      ? "State Transport Corporation (Division Operations)"
-      : /water|pipe|drain|sewage/i.test(`${qLower} ${ticket.category}`)
-        ? "Municipal Water Supply & Drainage Board"
-        : /road|pothole|street|bridge|light/i.test(`${qLower} ${ticket.category}`)
-          ? "Highways & Public Works Department"
-          : "District Grievance Nodal Office";
-
-  const audit = {
-    is_clear: words.length >= 3,
-    specificity_score: Math.min(1, Math.max(0.5, words.length / 15)),
-    suggested_department: deptGuess,
-    jurisdiction_note: `Routed to ${deptGuess} based on subject and location context.`,
-    is_duplicate: false,
-    clarifying_questions: []
-  };
+  const audit = await toolCheckQuestionQuality(db, env, ticketId, actorUserId);
 
   if (!ticket.departmentId) {
     await assignDepartmentFromAudit(
@@ -153,10 +136,13 @@ export async function runIntakeAudit(
   );
 
   if (conv) {
+    const videoPromptSuffix = audit.requires_video_inspection
+      ? " Pre-analysis flagged this as a site/construction issue — please record a short site video for AI evaluation before or alongside filing."
+      : "";
     const summaryText =
       ticket.language === "ta"
         ? `நான் Redressa (AI உதவியாளர்). உங்கள் கோரிக்கைக்காக ${created.criteria.length} வெற்றிக் கூறுகள் மற்றும் ${created.responseRequirements.length} துறைப் பதில் விதிகளுடன் எதிர்பார்ப்பு ஒப்பந்தம் உருவாக்கப்பட்டுள்ளது. உறுதிப்படுத்தவும் அல்லது திருத்தவும்.`
-        : `I'm Redressa, an AI assistant. I audited your question and drafted an Expectation Contract with ${created.criteria.length} measurable success criteria and ${created.responseRequirements.length} required officer response fields. Review and confirm it below to file your ticket.`;
+        : `I'm Redressa, an AI assistant. I audited your question and drafted an Expectation Contract with ${created.criteria.length} measurable success criteria and ${created.responseRequirements.length} required officer response fields.${videoPromptSuffix} Review and confirm it below to file your ticket.`;
 
     await db.insert(messages).values({
       id: crypto.randomUUID(),
@@ -173,7 +159,11 @@ export async function runIntakeAudit(
     });
   }
 
-  return { status: "contract_ready", audit, contract: created };
+  return {
+    status: audit.requires_video_inspection ? "video_inspection_recommended" : "contract_ready",
+    audit,
+    contract: created
+  };
 }
 
 async function runDeterministicClosureStep(
@@ -220,7 +210,7 @@ async function runDeterministicClosureStep(
 
     if (presentSignals.length >= 2 && caseData.verificationCase.trigger === "citizen_withdrawn") {
       const verdict = buildDeterministicVerdict(caseData, signals);
-      await toolSaveVerdict(db, caseId, verdict);
+      await toolSaveVerdict(db, caseId, verdict, env);
     }
     return;
   }
@@ -255,7 +245,7 @@ async function runDeterministicClosureStep(
   }
 
   const verdict = buildDeterministicVerdict(caseData, signals);
-  await toolSaveVerdict(db, caseId, verdict);
+  await toolSaveVerdict(db, caseId, verdict, env);
 }
 
 function buildDeterministicVerdict(
