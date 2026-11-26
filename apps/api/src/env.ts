@@ -24,6 +24,11 @@ export interface Env {
   ENCRYPTION_KEY?: string;
   SIGNING_SECRET?: string;
   SENTRY_DSN?: string;
+  AI_CALL_ENGINE_URL?: string;
+  AI_CALL_ENGINE_TOKEN?: string;
+  AI_CALL_ENGINE_WEBHOOK_SECRET?: string;
+  AI_CALL_ENGINE_TIMEOUT_MS?: string;
+  ORGANIZATION_NAME?: string;
 }
 
 export interface AgentEventMessage {

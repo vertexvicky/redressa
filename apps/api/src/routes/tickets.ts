@@ -20,6 +20,7 @@ import {
 import type { Env } from "../env.js";
 import { processAgentEvent } from "../agent/orchestrator.js";
 import { writeAuditLog } from "../services/audit.js";
+import { triggerAiCallNonBlocking } from "../services/aiCallEngine.js";
 import { createSignedEvidenceDownloadPath } from "../services/storage.js";
 import { transition } from "../services/transition.js";
 
@@ -320,7 +321,7 @@ ticketRoutes.post("/:id/feedback", async (c) => {
   const [beforeFinal] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
   if (parsed.data.satisfied) {
     if (beforeFinal && ["under_verification", "needs_review"].includes(beforeFinal.status)) {
-      await transition(
+      const result = await transition(
         db,
         id,
         "verified_resolved",
@@ -328,6 +329,20 @@ ticketRoutes.post("/:id/feedback", async (c) => {
         note || "Citizen confirmed the officer reply is satisfactory",
         { closedAt: now }
       );
+      if (result.previousStatus !== "verified_resolved" && result.previousStatus !== "closed_final") {
+        let waitUntil: ((p: Promise<unknown>) => void) | undefined;
+        try {
+          waitUntil = c.executionCtx.waitUntil.bind(c.executionCtx);
+        } catch {
+          waitUntil = undefined;
+        }
+        triggerAiCallNonBlocking(
+          db,
+          c.env,
+          { ticketId: id, closedAt: now, closedBy: user.id },
+          waitUntil
+        );
+      }
     }
   } else {
     if (beforeFinal?.status === "under_verification") {

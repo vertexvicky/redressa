@@ -1,0 +1,29 @@
+{
+  "name": "ai-call-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone AI Phone Calling Engine — automatic outbound AI calls on request closure",
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "build:shared": "cd packages/shared && npx tsc",
+    "build:backend": "cd packages/backend && npx tsc",
+    "build:frontend": "cd packages/frontend && npx tsc",
+    "dev": "cd packages/backend && npx tsx src/index.ts",
+    "start": "cd packages/backend && node dist/index.js",
+    "test": "cd packages/backend && npx vitest run",
+    "test:unit": "cd packages/backend && npx vitest run tests/unit",
+    "test:integration": "cd packages/backend && npx vitest run tests/integration",
+    "lint": "npx tsc --noEmit -p packages/shared/tsconfig.json && npx tsc --noEmit -p packages/backend/tsconfig.json",
+    "demo": "cd packages/backend && npx tsx src/demo.ts",
+    "clean": "rimraf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

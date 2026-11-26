@@ -3,6 +3,7 @@ import { OfficerContactLogSchema, OfficerReplySchema } from "@redressa/shared";
 import { Hono } from "hono";
 import { jsonError, requireRole, type AppVariables } from "../auth/guard.js";
 import {
+  aiCallEvents,
   contractCriteria,
   conversations,
   departmentContacts,
@@ -58,7 +59,7 @@ officerRoutes.get("/tickets/:id", async (c) => {
     .orderBy(desc(expectationContracts.version))
     .limit(1);
 
-  const [criteria, requirements, replies, contacts, ticketEvidence, cases] = await Promise.all([
+  const [criteria, requirements, replies, contacts, ticketEvidence, cases, aiCalls] = await Promise.all([
     contract
       ? db
           .select()
@@ -88,7 +89,22 @@ officerRoutes.get("/tickets/:id", async (c) => {
       .select()
       .from(verificationCases)
       .where(eq(verificationCases.ticketId, id))
-      .orderBy(desc(verificationCases.startedAt))
+      .orderBy(desc(verificationCases.startedAt)),
+    db
+      .select({
+        id: aiCallEvents.id,
+        deliveryStatus: aiCallEvents.deliveryStatus,
+        callStatus: aiCallEvents.callStatus,
+        callOutcome: aiCallEvents.callOutcome,
+        callDurationSeconds: aiCallEvents.callDurationSeconds,
+        skipReason: aiCallEvents.skipReason,
+        sentAt: aiCallEvents.sentAt,
+        completedAt: aiCallEvents.completedAt
+      })
+      .from(aiCallEvents)
+      .where(eq(aiCallEvents.ticketId, id))
+      .orderBy(desc(aiCallEvents.createdAt))
+      .limit(1)
   ]);
 
   const evidenceWithUrls = await Promise.all(
@@ -110,7 +126,8 @@ officerRoutes.get("/tickets/:id", async (c) => {
     replies,
     contacts,
     evidence: evidenceWithUrls,
-    verificationCase: cases[0] ?? null
+    verificationCase: cases[0] ?? null,
+    aiCall: aiCalls[0] ?? null
   });
 });
 

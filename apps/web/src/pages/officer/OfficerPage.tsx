@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FileText,
   Paperclip,
+  PhoneCall,
   Send,
   Sparkles,
   X
@@ -47,6 +48,45 @@ interface OfficerDetail {
   verificationCase: {
     reasons: string[] | null;
   } | null;
+  aiCall?: {
+    id: string;
+    deliveryStatus: string;
+    callStatus: string | null;
+    callOutcome: string | null;
+    callDurationSeconds: number | null;
+    skipReason: string | null;
+    sentAt: number | null;
+    completedAt: number | null;
+  } | null;
+}
+
+function getAiCallLabel(aiCall: NonNullable<OfficerDetail["aiCall"]>): string {
+  if (aiCall.deliveryStatus === "skipped") {
+    return "AI call skipped (no consent/phone)";
+  }
+  if (aiCall.deliveryStatus === "failed" && !aiCall.callStatus) {
+    return "Call failed";
+  }
+  switch (aiCall.callStatus) {
+    case "QUEUED":
+      return "AI call pending";
+    case "INITIATING":
+    case "RINGING":
+      return "AI call initiated";
+    case "CONNECTED":
+    case "IN_PROGRESS":
+      return "Customer answered";
+    case "COMPLETED":
+      return "Call completed";
+    case "NO_ANSWER":
+      return "No answer";
+    case "FAILED":
+    case "REJECTED":
+    case "CANCELLED":
+      return "Call failed";
+    default:
+      return "AI call pending";
+  }
 }
 
 interface AttachedFile {
@@ -246,6 +286,23 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                 </div>
                 <StatusBadge status={detail.ticket.status} />
               </div>
+
+              {detail.aiCall && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs">
+                  <div className="flex items-center gap-2 font-medium">
+                    <PhoneCall className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    <span>{getAiCallLabel(detail.aiCall)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[var(--text-muted)]">
+                    {detail.aiCall.callDurationSeconds != null && (
+                      <span>Duration: {detail.aiCall.callDurationSeconds}s</span>
+                    )}
+                    {detail.aiCall.callOutcome && (
+                      <span>Outcome: {detail.aiCall.callOutcome.replace(/_/g, " ")}</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {detail.ticket.status === "reopened" && detail.verificationCase?.reasons?.[0] && (
                 <div className="p-3 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs">

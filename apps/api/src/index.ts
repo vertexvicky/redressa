@@ -12,6 +12,7 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { demoRoutes } from "./routes/demo.js";
 import { evidencePublicFileRoutes, evidenceRoutes } from "./routes/evidence.js";
 import { intakeRoutes } from "./routes/intake.js";
+import { integrationRoutes } from "./routes/integrations.js";
 import { meRoutes } from "./routes/me.js";
 import { caseMessageRoutes } from "./routes/messages.js";
 import { officerRoutes } from "./routes/officer.js";
@@ -81,6 +82,7 @@ app.get("/health", async (c) => {
 
 app.route("/api/v1/dashboard", dashboardRoutes);
 app.route("/api/v1/evidence", evidencePublicFileRoutes);
+app.route("/api/v1/integrations", integrationRoutes);
 
 const authed = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 authed.use("*", authMiddleware);

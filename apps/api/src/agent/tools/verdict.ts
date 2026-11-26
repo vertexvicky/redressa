@@ -9,7 +9,9 @@ import {
   verificationCases
 } from "../../db/schema.js";
 import { writeAuditLog } from "../../services/audit.js";
+import { triggerAiCallNonBlocking } from "../../services/aiCallEngine.js";
 import { transition } from "../../services/transition.js";
+import type { Env } from "../../env.js";
 import { computeIntegritySignals } from "../signals.js";
 import { toolEscalateCase, toolNotifyOfficer, toolOpenAppealRecord } from "./case.js";
 
@@ -88,7 +90,8 @@ export async function toolSendMessage(
 export async function toolSaveVerdict(
   db: AppDb,
   caseId: string,
-  rawVerdict: VerdictPayload
+  rawVerdict: VerdictPayload,
+  env?: Env
 ) {
   const verdict = VerdictSchema.parse(rawVerdict);
   const [vCase] = await db
@@ -136,7 +139,7 @@ export async function toolSaveVerdict(
   }
 
   const targetStatus: TicketStatus = verdict.verdict;
-  await transition(
+  const transitionResult = await transition(
     db,
     ticket.id,
     targetStatus,
@@ -146,6 +149,19 @@ export async function toolSaveVerdict(
       closedAt: targetStatus === "verified_resolved" ? now : null
     }
   );
+
+  if (
+    env &&
+    targetStatus === "verified_resolved" &&
+    transitionResult.previousStatus !== "verified_resolved" &&
+    transitionResult.previousStatus !== "closed_final"
+  ) {
+    triggerAiCallNonBlocking(db, env, {
+      ticketId: ticket.id,
+      closedAt: now,
+      closedBy: "ai-verification-agent"
+    });
+  }
 
   await db.insert(ticketEvents).values({
     id: crypto.randomUUID(),

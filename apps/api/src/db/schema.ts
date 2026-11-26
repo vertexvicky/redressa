@@ -521,3 +521,35 @@ export const processedEvents = sqliteTable("processed_events", {
   id: text("id").primaryKey(),
   processedAt: integer("processed_at").notNull()
 });
+
+export const aiCallEvents = sqliteTable(
+  "ai_call_events",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull().default("REQUEST_CLOSED"),
+    deliveryStatus: text("delivery_status").notNull().default("pending"),
+    engineEventId: text("engine_event_id"),
+    engineCallId: text("engine_call_id"),
+    callStatus: text("call_status"),
+    callOutcome: text("call_outcome"),
+    callDurationSeconds: integer("call_duration_seconds"),
+    skipReason: text("skip_reason"),
+    lastError: text("last_error"),
+    attempts: integer("attempts").notNull().default(0),
+    nextRetryAt: integer("next_retry_at"),
+    closedAt: integer("closed_at").notNull(),
+    closedBy: text("closed_by"),
+    sentAt: integer("sent_at"),
+    completedAt: integer("completed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull()
+  },
+  (table) => [
+    uniqueIndex("uq_ai_call_events_ticket_event").on(table.ticketId, table.eventType),
+    index("idx_ai_call_events_delivery").on(table.deliveryStatus, table.nextRetryAt),
+    index("idx_ai_call_events_engine_call").on(table.engineCallId)
+  ]
+);

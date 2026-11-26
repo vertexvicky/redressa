@@ -220,7 +220,7 @@ async function runDeterministicClosureStep(
 
     if (presentSignals.length >= 2 && caseData.verificationCase.trigger === "citizen_withdrawn") {
       const verdict = buildDeterministicVerdict(caseData, signals);
-      await toolSaveVerdict(db, caseId, verdict);
+      await toolSaveVerdict(db, caseId, verdict, env);
     }
     return;
   }
@@ -255,7 +255,7 @@ async function runDeterministicClosureStep(
   }
 
   const verdict = buildDeterministicVerdict(caseData, signals);
-  await toolSaveVerdict(db, caseId, verdict);
+  await toolSaveVerdict(db, caseId, verdict, env);
 }
 
 function buildDeterministicVerdict(
