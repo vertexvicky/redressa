@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "redressa-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "redressa-b804f",
+    "FRONTEND_ORIGIN": "https://redressa.thevertexvicky.workers.dev",
+    "DEMO_SESSION_TTL_HOURS": "24",
+    "CONTACT_WINDOW_START": "09:00",
+    "CONTACT_WINDOW_END": "20:00",
+    "GEMINI_MODEL_AGENT": "gemini-3.1-flash-lite",
+    "GEMINI_MODEL_FAST": "gemini-3.1-flash-lite",
+    "GEMINI_MODEL_VISION": "gemini-3.1-flash-lite",
+    "GEMINI_MODEL_LIVE": "gemini-3.1-flash-live"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "redressa-db",
+      "database_id": "3534c068-4d46-4426-8867-61577e0f893b",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "queue": "agent-events",
+        "binding": "AGENT_EVENTS"
+      },
+      {
+        "queue": "evidence-processing",
+        "binding": "EVIDENCE_JOBS"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "agent-events",
+        "max_batch_size": 5,
+        "max_batch_timeout": 2
+      },
+      {
+        "queue": "evidence-processing",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CASE_ROOM",
+        "class_name": "CaseRoom"
+      },
+      {
+        "name": "VOICE_SESSION",
+        "class_name": "VoiceSession"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CaseRoom", "VoiceSession"]
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *", "0 * * * *"]
+  }
+}

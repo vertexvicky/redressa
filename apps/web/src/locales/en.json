@@ -1,0 +1,24 @@
+{
+  "brand": "Redressa",
+  "tagline": "Autonomous Closure-Verification AI Agent",
+  "heroHeadline": "We don't ask whether the ticket is closed. We ask whether the problem is solved, and whether the citizen was free to say so.",
+  "heroSub": "Redressa audits every civic grievance at the moment it is raised, writes a binding Expectation Contract, enforces structured departmental replies, and refuses closure until verified on the ground.",
+  "startDemo": "Start guided demo",
+  "loginGoogle": "Login with Google",
+  "nav": {
+    "home": "Overview",
+    "judge": "Judge Sandbox",
+    "citizen": "Citizen Portal",
+    "officer": "Officer Desk",
+    "reviewer": "Audit & Appeals",
+    "dashboard": "Integrity Dashboard",
+    "admin": "Admin"
+  },
+  "disclaimer": "Redressa is an autonomous AI agent. Every action is logged and you can contest any verdict in one tap. An independent reviewer audits decisions.",
+  "cantTalkNow": "I can't talk now",
+  "contestWrong": "This is wrong",
+  "themeLight": "Silk White",
+  "themeDark": "Obsidian Dark",
+  "aiBadge": "AI",
+  "simulatedBadge": "Simulated"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "redressa",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.3",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @redressa/api --filter @redressa/web dev",
+    "dev:api": "pnpm --filter @redressa/api dev",
+    "dev:web": "pnpm --filter @redressa/web dev",
+    "build": "pnpm --filter @redressa/shared build && pnpm --filter @redressa/api build && pnpm --filter @redressa/web build",
+    "typecheck": "pnpm --filter @redressa/shared typecheck && pnpm --filter @redressa/api typecheck && pnpm --filter @redressa/web typecheck",
+    "test": "pnpm --filter @redressa/shared test && pnpm --filter @redressa/api test && pnpm --filter @redressa/web test",
+    "db:migrate:local": "pnpm --filter @redressa/api db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @redressa/api db:migrate:remote",
+    "deploy:api": "pnpm --filter @redressa/api deploy",
+    "deploy:web": "pnpm --filter @redressa/web build && pnpm --filter @redressa/web deploy"
+  }
+}

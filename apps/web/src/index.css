@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: #faf9f6;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f3f2ee;
+  --bg-header: rgba(250, 249, 246, 0.86);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-hairline: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.14);
+  --accent: #0f4c81;
+  --accent-hover: #0c3d68;
+  --accent-soft: rgba(15, 76, 129, 0.08);
+  --accent-fg: #ffffff;
+  --verified-bg: #ecfdf5;
+  --verified-fg: #065f46;
+  --verified-border: rgba(5, 150, 105, 0.22);
+  --disputed-bg: #fffbeb;
+  --disputed-fg: #92400e;
+  --disputed-border: rgba(217, 119, 6, 0.25);
+  --reopened-bg: #fef2f2;
+  --reopened-fg: #991b1b;
+  --reopened-border: rgba(220, 38, 38, 0.22);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
+  --shadow-md: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 5px -2px rgba(15, 23, 42, 0.035), 0 0 0 1px rgba(15, 23, 42, 0.055);
+  --shadow-lg: 0 16px 36px -8px rgba(15, 23, 42, 0.085), 0 6px 14px -4px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: #0b0e14;
+  --bg-surface: #121722;
+  --bg-subtle: #181f2c;
+  --bg-header: rgba(11, 14, 20, 0.86);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-hairline: rgba(248, 250, 252, 0.08);
+  --border-strong: rgba(248, 250, 252, 0.16);
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.14);
+  --accent-fg: #ffffff;
+  --verified-bg: rgba(16, 185, 129, 0.14);
+  --verified-fg: #6ee7b7;
+  --verified-border: rgba(16, 185, 129, 0.28);
+  --disputed-bg: rgba(245, 158, 11, 0.14);
+  --disputed-fg: #fcd34d;
+  --disputed-border: rgba(245, 158, 11, 0.28);
+  --reopened-bg: rgba(239, 68, 68, 0.14);
+  --reopened-fg: #fca5a5;
+  --reopened-border: rgba(239, 68, 68, 0.28);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(248, 250, 252, 0.07);
+  --shadow-lg: 0 22px 48px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(248, 250, 252, 0.09);
+}
+
+html,
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+.silk-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-md);
+  border-radius: 14px;
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.silk-card-elevated {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-lg);
+  border-radius: 16px;
+}
+
+.silk-subtle {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

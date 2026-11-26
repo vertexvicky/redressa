@@ -1,0 +1,369 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Send,
+  Sparkles,
+  X
+} from "lucide-react";
+import type { MeProfile } from "../../components/Layout.js";
+import { Button, Card, StatusBadge } from "../../components/ui.js";
+import { apiFetch, resolveApiUrl, uploadEvidenceFile } from "../../lib/api.js";
+
+interface OfficerTicket {
+  id: string;
+  citizenId: string;
+  title: string;
+  status: string;
+  locationText: string | null;
+}
+
+interface OfficerDetail {
+  ticket: OfficerTicket & { originalQuestion: string };
+  contract: {
+    desiredOutcome: string;
+    responseRequirements: Array<{
+      id: string;
+      label: string;
+      description: string;
+    }>;
+  } | null;
+  replies: Array<{
+    id: string;
+    text: string;
+    returned: number;
+    returnGapsJson: string[] | null;
+  }>;
+  evidence: Array<{
+    id: string;
+    uploaderId: string;
+    mime: string;
+    signedUrl: string;
+  }>;
+  verificationCase: {
+    reasons: string[] | null;
+  } | null;
+}
+
+interface AttachedFile {
+  id: string;
+  name: string;
+}
+
+export function OfficerPage({ user }: { user: MeProfile | null }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [banner, setBanner] = useState<{ kind: "success" | "warning" | "error"; text: string } | null>(null);
+
+  const { data: listRes, refetch: refetchList } = useQuery({
+    queryKey: ["officer-tickets", user?.id],
+    queryFn: () => apiFetch<{ tickets: OfficerTicket[] }>("/api/v1/officer/tickets"),
+    enabled: Boolean(user),
+    refetchInterval: 8000
+  });
+
+  const ticketsList = listRes?.tickets ?? [];
+  const activeId = selectedId ?? ticketsList[0]?.id ?? null;
+
+  const { data: detail, refetch: refetchDetail } = useQuery({
+    queryKey: ["officer-ticket-detail", activeId],
+    queryFn: () => apiFetch<OfficerDetail>(`/api/v1/officer/tickets/${activeId}`),
+    enabled: Boolean(activeId),
+    refetchInterval: 8000
+  });
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id);
+    setBanner(null);
+    setReplyText("");
+    setFieldValues({});
+    setAttachedFiles([]);
+  };
+
+  const handleAttach = async (files: FileList | null) => {
+    if (!files || !activeId) return;
+    setUploading(true);
+    setBanner(null);
+    try {
+      const added: AttachedFile[] = [];
+      for (const file of Array.from(files)) {
+        const res = await uploadEvidenceFile({ file, ticketId: activeId });
+        added.push({ id: res.evidence.id, name: file.name });
+      }
+      setAttachedFiles((prev) => [...prev, ...added]);
+      await refetchDetail();
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Upload failed" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeId) return;
+    setBanner(null);
+    setSubmitting(true);
+
+    const reqs = detail?.contract?.responseRequirements ?? [];
+    const ids = attachedFiles.map((f) => f.id);
+    const structuredEntries = reqs
+      .filter((rq) => (fieldValues[rq.id] ?? "").trim())
+      .map((rq, idx) => ({
+        requirement_id: rq.id,
+        label: rq.label,
+        value: fieldValues[rq.id] ?? "",
+        evidence_ids: idx === 0 ? ids : []
+      }));
+
+    const text =
+      replyText.trim() ||
+      structuredEntries.map((entry) => `${entry.label}: ${entry.value}`).join("\n");
+
+    if (!text) {
+      setSubmitting(false);
+      setBanner({ kind: "error", text: "Enter a reply first." });
+      return;
+    }
+
+    try {
+      const res = await apiFetch<{
+        reply: { returned: number };
+        compliance: { compliant: boolean };
+      }>(`/api/v1/officer/tickets/${activeId}/reply`, {
+        method: "POST",
+        body: JSON.stringify({
+          text,
+          structured_entries: structuredEntries,
+          evidence_ids: ids,
+          claims_resolved: false
+        })
+      });
+
+      if (res.reply.returned === 1 || !res.compliance.compliant) {
+        setBanner({
+          kind: "warning",
+          text: "AI found missing proof. Answer the questions below and resubmit."
+        });
+      } else {
+        setBanner({
+          kind: "success",
+          text: "Verified by AI and sent to User for final confirmation."
+        });
+        setReplyText("");
+        setFieldValues({});
+        setAttachedFiles([]);
+      }
+      await Promise.all([refetchDetail(), refetchList()]);
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Submit failed" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const latestReturned = detail?.replies[0]?.returned === 1 ? detail.replies[0] : null;
+  const citizenFiles = detail?.evidence.filter((ev) => ev.uploaderId === detail.ticket.citizenId) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl sm:text-2xl font-bold">Officer Desk</h1>
+      </div>
+
+      {banner && (
+        <div
+          className={`px-4 py-3 rounded-xl border text-sm flex items-center gap-2 ${
+            banner.kind === "success"
+              ? "border-[var(--verified-border)] bg-[var(--verified-bg)] text-[var(--verified-fg)]"
+              : banner.kind === "warning"
+                ? "border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)]"
+                : "border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)]"
+          }`}
+        >
+          {banner.kind === "success" ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0" />
+          )}
+          <span>{banner.text}</span>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-12 gap-5 items-start">
+        <Card className="lg:col-span-4 p-3 space-y-2">
+          <div className="text-xs font-semibold text-[var(--text-muted)] px-1">
+            Tickets ({ticketsList.length})
+          </div>
+          {ticketsList.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)] py-6 text-center">No tickets yet.</p>
+          ) : (
+            ticketsList.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleSelect(item.id)}
+                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                  item.id === activeId
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-[var(--border-hairline)] bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold line-clamp-1">{item.title}</span>
+                  <StatusBadge status={item.status} />
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                  {item.locationText || "Assigned"}
+                </div>
+              </button>
+            ))
+          )}
+        </Card>
+
+        <div className="lg:col-span-8 space-y-4">
+          {detail ? (
+            <Card className="p-5 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--border-hairline)] pb-3">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold">{detail.ticket.title}</h2>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    {detail.ticket.originalQuestion}
+                  </p>
+                  {detail.contract && (
+                    <p className="text-xs text-[var(--accent)] font-medium">
+                      Needed: {detail.contract.desiredOutcome}
+                    </p>
+                  )}
+                </div>
+                <StatusBadge status={detail.ticket.status} />
+              </div>
+
+              {detail.ticket.status === "reopened" && detail.verificationCase?.reasons?.[0] && (
+                <div className="p-3 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs">
+                  <strong>User Not Satisfied:</strong> {detail.verificationCase.reasons[0]}
+                </div>
+              )}
+
+              {latestReturned && (
+                <div className="p-3.5 rounded-xl border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>AI Follow-up Questions (Insufficient Evidence)</span>
+                  </div>
+                  <ul className="list-disc pl-4 text-xs space-y-0.5">
+                    {(latestReturned.returnGapsJson ?? []).map((gap, i) => (
+                      <li key={i}>{gap}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {citizenFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {citizenFiles.map((ev) => (
+                    <a
+                      key={ev.id}
+                      href={resolveApiUrl(ev.signedUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      <span>User file ({ev.mime})</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <textarea
+                  rows={4}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Write your reply (order number, action taken, dates)..."
+                  className="w-full p-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
+                />
+
+                {(detail.contract?.responseRequirements ?? []).length > 0 && (
+                  <details className="silk-subtle p-3 text-xs">
+                    <summary className="cursor-pointer font-medium text-[var(--text-secondary)] flex items-center gap-1">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      <span>Expected Answer Checklist ({detail.contract?.responseRequirements.length})</span>
+                    </summary>
+                    <div className="space-y-2.5 mt-3">
+                      {(detail.contract?.responseRequirements ?? []).map((req) => (
+                        <div key={req.id} className="space-y-1">
+                          <label className="font-semibold block">{req.label}</label>
+                          <input
+                            value={fieldValues[req.id] ?? ""}
+                            onChange={(e) =>
+                              setFieldValues((prev) => ({ ...prev, [req.id]: e.target.value }))
+                            }
+                            placeholder={req.description}
+                            className="w-full min-h-9 px-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs font-medium cursor-pointer">
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>{uploading ? "Uploading..." : "Attach Proof"}</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf,text/plain"
+                        className="hidden"
+                        onChange={(e) => void handleAttach(e.target.files)}
+                      />
+                    </label>
+
+                    {attachedFiles.map((file) => (
+                      <span
+                        key={file.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
+                      >
+                        <span>{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAttachedFiles((prev) => prev.filter((item) => item.id !== file.id))
+                          }
+                          className="cursor-pointer text-[var(--text-muted)]"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  <Button type="submit" disabled={submitting || uploading}>
+                    <Send className="w-4 h-4" />
+                    <span>{submitting ? "AI Checking..." : "Submit"}</span>
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          ) : (
+            <Card className="p-8 text-center text-sm text-[var(--text-muted)]">
+              Select a ticket to reply.
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
