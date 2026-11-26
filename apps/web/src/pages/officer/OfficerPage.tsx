@@ -7,7 +7,6 @@ import {
   FileText,
   Paperclip,
   Send,
-  Sparkles,
   X
 } from "lucide-react";
 import type { MeProfile } from "../../components/Layout.js";
@@ -20,6 +19,7 @@ interface OfficerTicket {
   title: string;
   status: string;
   locationText: string | null;
+  createdAt: number;
 }
 
 interface OfficerDetail {
@@ -130,7 +130,7 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
 
     if (!text) {
       setSubmitting(false);
-      setBanner({ kind: "error", text: "Enter a reply first." });
+      setBanner({ kind: "error", text: "Enter a reply before submitting." });
       return;
     }
 
@@ -151,12 +151,12 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
       if (res.reply.returned === 1 || !res.compliance.compliant) {
         setBanner({
           kind: "warning",
-          text: "AI found missing proof. Answer the questions below and resubmit."
+          text: "Verification requires additional proof or clarification. Review the questions below."
         });
       } else {
         setBanner({
           kind: "success",
-          text: "Verified by AI and sent to User for final confirmation."
+          text: "Reply verified and sent to the applicant for final confirmation."
         });
         setReplyText("");
         setFieldValues({});
@@ -174,9 +174,12 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
   const citizenFiles = detail?.evidence.filter((ev) => ev.uploaderId === detail.ticket.citizenId) ?? [];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold">Officer Desk</h1>
+    <div className="space-y-6">
+      <div className="border-b border-[var(--border-hairline)] pb-4">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Officer Desk</h1>
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+          Review assigned tickets, attach official records, and submit verified responses.
+        </p>
       </div>
 
       {banner && (
@@ -198,49 +201,55 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-12 gap-5 items-start">
+      <div className="grid lg:grid-cols-12 gap-6 items-start">
         <Card className="lg:col-span-4 p-3 space-y-2">
-          <div className="text-xs font-semibold text-[var(--text-muted)] px-1">
-            Tickets ({ticketsList.length})
+          <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            Assigned Queue ({ticketsList.length})
           </div>
           {ticketsList.length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)] py-6 text-center">No tickets yet.</p>
+            <p className="text-xs text-[var(--text-muted)] py-8 text-center">No tickets assigned.</p>
           ) : (
-            ticketsList.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleSelect(item.id)}
-                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                  item.id === activeId
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                    : "border-[var(--border-hairline)] bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold line-clamp-1">{item.title}</span>
-                  <StatusBadge status={item.status} />
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                  {item.locationText || "Assigned"}
-                </div>
-              </button>
-            ))
+            <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+              {ticketsList.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelect(item.id)}
+                  className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    item.id === activeId
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                      : "border-[var(--border-hairline)] bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-semibold line-clamp-1">{item.title}</span>
+                    <StatusBadge status={item.status} />
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-1.5 flex justify-between">
+                    <span>{item.locationText || "Assigned Division"}</span>
+                    <span className="font-mono-code">#{item.id.slice(0, 6)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </Card>
 
         <div className="lg:col-span-8 space-y-4">
           {detail ? (
-            <Card className="p-5 space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--border-hairline)] pb-3">
+            <Card elevated className="p-6 space-y-5">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-hairline)] pb-4">
                 <div className="space-y-1">
+                  <div className="text-xs font-mono-code text-[var(--text-muted)]">
+                    Ticket #{detail.ticket.id.slice(0, 8)}
+                  </div>
                   <h2 className="text-lg font-bold">{detail.ticket.title}</h2>
                   <p className="text-sm text-[var(--text-secondary)]">
                     {detail.ticket.originalQuestion}
                   </p>
                   {detail.contract && (
-                    <p className="text-xs text-[var(--accent)] font-medium">
-                      Needed: {detail.contract.desiredOutcome}
+                    <p className="text-xs text-[var(--accent)] font-medium pt-1">
+                      Expected Outcome: {detail.contract.desiredOutcome}
                     </p>
                   )}
                 </div>
@@ -248,16 +257,15 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
               </div>
 
               {detail.ticket.status === "reopened" && detail.verificationCase?.reasons?.[0] && (
-                <div className="p-3 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs">
-                  <strong>User Not Satisfied:</strong> {detail.verificationCase.reasons[0]}
+                <div className="p-3.5 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs">
+                  <strong>Applicant Feedback:</strong> {detail.verificationCase.reasons[0]}
                 </div>
               )}
 
               {latestReturned && (
-                <div className="p-3.5 rounded-xl border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>AI Follow-up Questions (Insufficient Evidence)</span>
+                <div className="p-4 rounded-xl border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] space-y-1.5">
+                  <div className="text-xs font-semibold">
+                    Audit Follow-up Questions (Insufficient Evidence)
                   </div>
                   <ul className="list-disc pl-4 text-xs space-y-0.5">
                     {(latestReturned.returnGapsJson ?? []).map((gap, i) => (
@@ -275,29 +283,34 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                       href={resolveApiUrl(ev.signedUrl)}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
                     >
                       <FileText className="w-3.5 h-3.5 text-[var(--accent)]" />
-                      <span>User file ({ev.mime})</span>
+                      <span>Applicant Attachment ({ev.mime})</span>
                     </a>
                   ))}
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <textarea
-                  rows={4}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Write your reply (order number, action taken, dates)..."
-                  className="w-full p-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
-                />
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Official Response
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Provide reference/order numbers, corrective actions taken, and effective dates..."
+                    className="w-full p-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
+                  />
+                </div>
 
                 {(detail.contract?.responseRequirements ?? []).length > 0 && (
-                  <details className="silk-subtle p-3 text-xs">
-                    <summary className="cursor-pointer font-medium text-[var(--text-secondary)] flex items-center gap-1">
+                  <details className="silk-subtle p-3.5 text-xs">
+                    <summary className="cursor-pointer font-medium text-[var(--text-secondary)] inline-flex items-center gap-1">
                       <ChevronDown className="w-3.5 h-3.5" />
-                      <span>Expected Answer Checklist ({detail.contract?.responseRequirements.length})</span>
+                      <span>Expected Response Checklist ({detail.contract?.responseRequirements.length})</span>
                     </summary>
                     <div className="space-y-2.5 mt-3">
                       {(detail.contract?.responseRequirements ?? []).map((req) => (
@@ -317,9 +330,9 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                   </details>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs font-medium cursor-pointer">
+                    <label className="inline-flex items-center gap-1.5 min-h-10 px-3.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs font-medium cursor-pointer hover:opacity-90">
                       <Paperclip className="w-3.5 h-3.5" />
                       <span>{uploading ? "Uploading..." : "Attach Proof"}</span>
                       <input
@@ -334,7 +347,7 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
                     {attachedFiles.map((file) => (
                       <span
                         key={file.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs"
                       >
                         <span>{file.name}</span>
                         <button
@@ -352,14 +365,14 @@ export function OfficerPage({ user }: { user: MeProfile | null }) {
 
                   <Button type="submit" disabled={submitting || uploading}>
                     <Send className="w-4 h-4" />
-                    <span>{submitting ? "AI Checking..." : "Submit"}</span>
+                    <span>{submitting ? "Verifying..." : "Submit Response"}</span>
                   </Button>
                 </div>
               </form>
             </Card>
           ) : (
-            <Card className="p-8 text-center text-sm text-[var(--text-muted)]">
-              Select a ticket to reply.
+            <Card className="p-10 text-center text-sm text-[var(--text-muted)]">
+              Select a ticket from the queue to respond.
             </Card>
           )}
         </div>

@@ -26,6 +26,8 @@ meRoutes.get("/", async (c) => {
     }
   }
 
+  const userType = dbUser?.userType ?? null;
+
   return c.json({
     id: user.id,
     firebaseUid: user.firebaseUid,
@@ -33,6 +35,8 @@ meRoutes.get("/", async (c) => {
     name: user.name,
     role: user.role,
     baseRole: user.baseRole,
+    userType,
+    roleLocked: Boolean(userType),
     language: user.language,
     isDemo: user.isDemo,
     demoSessionId: user.demoSessionId,
@@ -53,10 +57,26 @@ meRoutes.patch("/", async (c) => {
     return jsonError(c, 400, "VALIDATION_ERROR", "Invalid profile update", parsed.error.flatten());
   }
 
+  const [dbUser] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
   const now = Date.now();
   const updates: Partial<typeof users.$inferInsert> = { updatedAt: now };
   if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-  if (parsed.data.role !== undefined) updates.role = parsed.data.role;
+
+  const requestedType = parsed.data.user_type ?? parsed.data.role;
+  if (requestedType !== undefined) {
+    if (dbUser?.userType && dbUser.userType !== requestedType) {
+      return jsonError(
+        c,
+        403,
+        "ROLE_LOCKED",
+        `This account is permanently set as ${dbUser.userType === "citizen" ? "User" : dbUser.userType}. One account cannot switch roles.`
+      );
+    }
+    updates.userType = requestedType;
+    updates.role = requestedType;
+    updates.isDemo = requestedType === "judge" ? 1 : 0;
+  }
+
   if (parsed.data.language !== undefined) updates.language = parsed.data.language;
 
   if (parsed.data.phone !== undefined) {
@@ -81,12 +101,13 @@ meRoutes.patch("/", async (c) => {
   await writeAuditLog(db, {
     actorType: user.isDemo ? "judge" : "citizen",
     actorId: user.id,
-    action: "profile_updated",
+    action: requestedType ? "user_type_selected" : "profile_updated",
     entityType: "user",
-    entityId: user.id
+    entityId: user.id,
+    diff: requestedType ? { userType: requestedType } : undefined
   });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, userType: updates.userType ?? dbUser?.userType ?? null });
 });
 
 meRoutes.get("/consents", async (c) => {
@@ -128,6 +149,7 @@ meRoutes.get("/export", async (c) => {
       email: dbUser?.email,
       name: dbUser?.name,
       role: dbUser?.role,
+      userType: dbUser?.userType,
       language: dbUser?.language,
       createdAt: dbUser?.createdAt
     },

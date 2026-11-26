@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { JudgeModal } from "./components/JudgeModal.js";
 import { Layout, type MeProfile } from "./components/Layout.js";
 import { apiFetch } from "./lib/api.js";
 import { logoutFirebase, subscribeAuth } from "./lib/firebase.js";
@@ -24,6 +25,7 @@ function AppShell() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [judgeModalOpen, setJudgeModalOpen] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -47,37 +49,62 @@ function AppShell() {
   }, [loadProfile]);
 
   const handleLogout = async () => {
+    setJudgeModalOpen(false);
     await logoutFirebase();
     setProfile(null);
     queryClient.clear();
     navigate("/");
   };
 
-  const handleSwitchRole = async (role: "citizen" | "officer") => {
-    await apiFetch("/api/v1/me", {
-      method: "PATCH",
-      body: JSON.stringify({ role })
-    });
-    await loadProfile();
-    navigate(role === "officer" ? "/officer" : "/citizen");
-  };
-
   return (
-    <Layout user={profile} onLogout={handleLogout} onSwitchRole={handleSwitchRole}>
+    <Layout
+      user={profile}
+      onLogout={handleLogout}
+      onOpenJudge={() => setJudgeModalOpen(true)}
+    >
       {!authReady ? (
         <div className="py-16 text-center text-sm text-[var(--text-muted)]">
           Loading Redressa...
         </div>
       ) : (
         <Routes>
-          <Route path="/" element={<LandingPage user={profile} onAuthChanged={loadProfile} />} />
+          <Route
+            path="/"
+            element={
+              <LandingPage
+                user={profile}
+                onAuthChanged={loadProfile}
+                onOpenJudge={() => setJudgeModalOpen(true)}
+              />
+            }
+          />
           <Route
             path="/citizen"
-            element={profile ? <CitizenPage user={profile} /> : <Navigate to="/" replace />}
+            element={
+              profile ? (
+                profile.role === "officer" ? (
+                  <Navigate to="/officer" replace />
+                ) : (
+                  <CitizenPage user={profile} />
+                )
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
           />
           <Route
             path="/officer"
-            element={profile ? <OfficerPage user={profile} /> : <Navigate to="/" replace />}
+            element={
+              profile ? (
+                profile.role === "citizen" ? (
+                  <Navigate to="/citizen" replace />
+                ) : (
+                  <OfficerPage user={profile} />
+                )
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
           />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route
@@ -87,6 +114,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}
+      <JudgeModal open={judgeModalOpen} onClose={() => setJudgeModalOpen(false)} />
     </Layout>
   );
 }

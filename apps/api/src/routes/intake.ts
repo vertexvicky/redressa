@@ -5,7 +5,7 @@ import {
   IntakeSubmitSchema
 } from "@redressa/shared";
 import { Hono } from "hono";
-import { jsonError, type AppVariables } from "../auth/guard.js";
+import { jsonError, requireRole, type AppVariables } from "../auth/guard.js";
 import {
   contractCriteria,
   conversations,
@@ -21,6 +21,8 @@ import { writeAuditLog } from "../services/audit.js";
 import { transition } from "../services/transition.js";
 
 export const intakeRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+
+intakeRoutes.use("*", requireRole("citizen", "judge", "admin"));
 
 intakeRoutes.post("/", async (c) => {
   const user = c.get("user")!;
@@ -48,8 +50,8 @@ intakeRoutes.post("/", async (c) => {
     status: "intake_audit",
     language: parsed.data.language,
     originalQuestion: parsed.data.question,
-    isDemo: 0,
-    demoSessionId: null,
+    isDemo: user.role === "judge" || user.isDemo ? 1 : 0,
+    demoSessionId: user.demoSessionId,
     createdAt: now,
     updatedAt: now
   });

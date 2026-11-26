@@ -69,11 +69,11 @@ interface TicketDetail {
 }
 
 const STAGES = [
-  "Raised",
+  "Submitted",
   "Contract",
-  "Officer",
-  "AI Check",
-  "Your Review",
+  "Assigned",
+  "AI Audit",
+  "Review",
   "Closed"
 ] as const;
 
@@ -193,7 +193,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
       setShowNewForm(false);
       await Promise.all([refetchList(), refetchDetail(), refetchTimeline()]);
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Failed to submit");
+      setNotice(err instanceof Error ? err.message : "Failed to submit filing");
     } finally {
       setSubmitting(false);
     }
@@ -202,7 +202,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
   const handleConfirmContract = async () => {
     if (!activeId) return;
     await apiFetch(`/api/v1/intake/${activeId}/contract/confirm`, { method: "POST" });
-    setNotice("Sent to Officer.");
+    setNotice("Filing confirmed and forwarded to the assigned officer.");
     await Promise.all([refetchList(), refetchDetail(), refetchTimeline()]);
   };
 
@@ -220,10 +220,10 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
       });
       setFeedbackReason("");
       setShowRejectBox(false);
-      setNotice(satisfied ? "Marked Verified Closed." : "Reopened and sent back to Officer.");
+      setNotice(satisfied ? "Ticket marked Verified Closed." : "Ticket reopened and returned to Officer.");
       await Promise.all([refetchList(), refetchDetail(), refetchTimeline()]);
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Failed to update status");
+      setNotice(err instanceof Error ? err.message : "Failed to submit response");
     } finally {
       setSendingFeedback(false);
     }
@@ -236,7 +236,6 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
     await refetchDetail();
   };
 
-  const isCreating = showNewForm || (!isLoading && ticketsList.length === 0);
   const stageIdx = detail ? getStageIndex(detail.ticket.status) : 0;
   const latestAcceptedReply = detail?.replies.find((r) => r.returned === 0) ?? null;
   const latestReturnedReply = detail?.replies[0]?.returned === 1 ? detail.replies[0] : null;
@@ -250,21 +249,27 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
     );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-hairline)] pb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Previous Filings</h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+            Track status across every stage or submit a new ticket.
+          </p>
+        </div>
+
         <div className="flex items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold">My Cases</h1>
-          {!isCreating && (
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs">
+          {!showNewForm && ticketsList.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs">
               {(["all", "action", "closed"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setFilter(tab)}
-                  className={`px-2.5 py-1 rounded-lg capitalize cursor-pointer transition-colors ${
+                  className={`px-3 py-1 rounded-lg capitalize cursor-pointer transition-colors ${
                     filter === tab
                       ? "bg-[var(--bg-surface)] text-[var(--text-primary)] font-semibold shadow-[var(--shadow-sm)]"
-                      : "text-[var(--text-muted)]"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   {tab === "action" ? "Needs Review" : tab}
@@ -272,88 +277,117 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
               ))}
             </div>
           )}
-        </div>
 
-        {isCreating && ticketsList.length > 0 ? (
-          <Button size="sm" variant="secondary" onClick={() => setShowNewForm(false)}>
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back ({ticketsList.length})</span>
-          </Button>
-        ) : (
-          <Button size="sm" onClick={() => setShowNewForm(true)}>
-            <Plus className="w-4 h-4" />
-            <span>New Case</span>
-          </Button>
-        )}
+          {showNewForm ? (
+            <Button size="sm" variant="secondary" onClick={() => setShowNewForm(false)}>
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Filings</span>
+            </Button>
+          ) : (
+            <Button onClick={() => setShowNewForm(true)}>
+              <Plus className="w-4 h-4" />
+              <span>New Ticket</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {notice && (
-        <div className="px-4 py-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-sm">
+        <div className="px-4 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)] text-sm">
           {notice}
         </div>
       )}
 
-      {isCreating ? (
-        <Card className="p-5 sm:p-6 max-w-xl mx-auto space-y-4">
-          <h2 className="text-base font-bold">New Case / Query</h2>
-          <form onSubmit={handleSubmitQuestion} className="space-y-3">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Subject"
-              className="w-full min-h-10 px-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
-              required
-            />
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              rows={4}
-              placeholder="Describe the issue and what outcome/proof you need..."
-              className="w-full p-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
-              required
-            />
-            <div className="grid grid-cols-2 gap-2.5">
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full min-h-10 px-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
-              >
-                <option value="transport">Transport</option>
-                <option value="water">Water</option>
-                <option value="roads">Roads &amp; Lights</option>
-                <option value="health">Health</option>
-                <option value="rti">RTI / Info</option>
-                <option value="other">Other</option>
-              </select>
-              <div className="flex gap-1">
-                <input
-                  value={locationText}
-                  onChange={(e) => setLocationText(e.target.value)}
-                  placeholder="Location"
+      {showNewForm ? (
+        <Card elevated className="p-6 max-w-2xl mx-auto space-y-5">
+          <div className="border-b border-[var(--border-hairline)] pb-3">
+            <h2 className="text-lg font-bold">New Grievance / Query Filing</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              Provide clear details so the system can define required proof criteria.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmitQuestion} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                Subject
+              </label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Brief title of your issue or request"
+                className="w-full min-h-10 px-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                Details / Question
+              </label>
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                rows={4}
+                placeholder="State the issue, dates, location, and exact resolution or record requested..."
+                className="w-full p-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
+                required
+              />
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
                   className="w-full min-h-10 px-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() =>
-                    navigator.geolocation?.getCurrentPosition((pos) => {
-                      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                      if (!locationText) {
-                        setLocationText(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
-                      }
-                    })
-                  }
                 >
-                  <MapPin className="w-4 h-4" />
-                </Button>
+                  <option value="transport">Public Transport</option>
+                  <option value="water">Water &amp; Sanitation</option>
+                  <option value="roads">Roads &amp; Infrastructure</option>
+                  <option value="health">Healthcare</option>
+                  <option value="rti">RTI / Public Records</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Location / Office
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    value={locationText}
+                    onChange={(e) => setLocationText(e.target.value)}
+                    placeholder="Area, ward, or department"
+                    className="w-full min-h-10 px-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      navigator.geolocation?.getCurrentPosition((pos) => {
+                        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        if (!locationText) {
+                          setLocationText(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+                        }
+                      })
+                    }
+                    title="Attach coordinates"
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs cursor-pointer">
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs font-medium cursor-pointer hover:opacity-90">
                 <Paperclip className="w-3.5 h-3.5" />
-                <span>{initialFile ? initialFile.name : "Attach file (optional)"}</span>
+                <span>{initialFile ? initialFile.name : "Attach supporting document (optional)"}</span>
                 <input
                   type="file"
                   accept="image/*,application/pdf,text/plain"
@@ -365,53 +399,80 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 <button
                   type="button"
                   onClick={() => setInitialFile(null)}
-                  className="text-xs text-[var(--text-muted)] cursor-pointer"
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--reopened-fg)] cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Analyzing..." : "Submit"}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-hairline)]">
+              <Button type="button" variant="ghost" onClick={() => setShowNewForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit Ticket"}
+              </Button>
+            </div>
           </form>
         </Card>
+      ) : !isLoading && ticketsList.length === 0 ? (
+        <Card className="p-12 text-center space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold">No filings yet</h2>
+            <p className="text-sm text-[var(--text-muted)]">
+              Submit your first grievance or information request to begin tracking.
+            </p>
+          </div>
+          <div>
+            <Button onClick={() => setShowNewForm(true)}>
+              <Plus className="w-4 h-4" />
+              <span>New Ticket</span>
+            </Button>
+          </div>
+        </Card>
       ) : (
-        <div className="grid lg:grid-cols-12 gap-5 items-start">
+        <div className="grid lg:grid-cols-12 gap-6 items-start">
           <Card className="lg:col-span-4 p-3 space-y-2">
-            {filtered.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)] py-6 text-center">No cases found.</p>
-            ) : (
-              filtered.map((item) => (
+            <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Filings ({filtered.length})
+            </div>
+            <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+              {filtered.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedTicketId(item.id)}
-                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                  className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
                     item.id === activeId
                       ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                       : "border-[var(--border-hairline)] bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-semibold line-clamp-1">{item.title}</span>
                     <StatusBadge status={item.status} />
                   </div>
-                  <div className="text-[11px] text-[var(--text-muted)] mt-1 flex justify-between">
-                    <span>Step {getStageIndex(item.status) + 1}/6</span>
-                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-1.5 flex items-center justify-between">
+                    <span>Stage {getStageIndex(item.status) + 1} of {STAGES.length}</span>
+                    <span className="font-mono-code">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </button>
-              ))
-            )}
+              ))}
+            </div>
           </Card>
 
           <div className="lg:col-span-8 space-y-4">
             {detail ? (
-              <Card className="p-5 space-y-5">
+              <Card elevated className="p-6 space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-hairline)] pb-4">
                   <div className="space-y-1">
+                    <div className="text-xs font-mono-code text-[var(--text-muted)]">
+                      Ticket #{detail.ticket.id.slice(0, 8)}
+                      {detail.department ? ` · ${detail.department.name}` : ""}
+                    </div>
                     <h2 className="text-lg font-bold">{detail.ticket.title}</h2>
                     <p className="text-sm text-[var(--text-secondary)]">
                       {detail.ticket.originalQuestion}
@@ -445,24 +506,31 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 </div>
 
                 {detail.contract && (
-                  <div className="silk-subtle p-3.5 space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs font-semibold">{detail.contract.desiredOutcome}</div>
+                  <div className="silk-subtle p-4 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--accent)]">
+                          Expectation Contract
+                        </div>
+                        <div className="text-sm font-medium">{detail.contract.desiredOutcome}</div>
+                      </div>
                       {detail.contract.confirmedByCitizen === 0 &&
                       detail.ticket.status === "awaiting_citizen_confirmation" ? (
                         <Button size="sm" onClick={handleConfirmContract}>
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Confirm &amp; Send to Officer</span>
+                          <span>Confirm &amp; File</span>
                         </Button>
                       ) : (
-                        <span className="text-xs font-medium text-[var(--verified-fg)]">Confirmed ✓</span>
+                        <span className="text-xs font-semibold text-[var(--verified-fg)]">
+                          Confirmed ✓
+                        </span>
                       )}
                     </div>
 
                     <details className="text-xs text-[var(--text-secondary)]">
-                      <summary className="cursor-pointer font-medium text-[var(--text-muted)] flex items-center gap-1">
+                      <summary className="cursor-pointer font-medium text-[var(--text-muted)] inline-flex items-center gap-1">
                         <ChevronDown className="w-3.5 h-3.5" />
-                        <span>AI Contract Requirements ({detail.contract.responseRequirements.length})</span>
+                        <span>Required Officer Deliverables ({detail.contract.responseRequirements.length})</span>
                       </summary>
                       <ul className="list-disc pl-5 mt-2 space-y-1">
                         {detail.contract.responseRequirements.map((rq) => (
@@ -476,8 +544,10 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 )}
 
                 {latestReturnedReply && (
-                  <div className="p-3.5 rounded-xl border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] text-xs space-y-1">
-                    <div className="font-semibold">AI asked Officer for missing proof</div>
+                  <div className="p-4 rounded-xl border border-[var(--disputed-border)] bg-[var(--disputed-bg)] text-[var(--disputed-fg)] text-xs space-y-1">
+                    <div className="font-semibold">
+                      System audit returned the officer&rsquo;s initial reply for missing documentation
+                    </div>
                     <ul className="list-disc pl-4 space-y-0.5">
                       {(latestReturnedReply.returnGapsJson ?? []).map((g, i) => (
                         <li key={i}>{g}</li>
@@ -489,7 +559,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 {latestAcceptedReply && (
                   <div className="p-4 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] space-y-3">
                     <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-                      <span className="font-semibold text-[var(--text-primary)]">Officer Reply</span>
+                      <span className="font-semibold text-[var(--text-primary)]">Official Reply</span>
                       <span>{new Date(latestAcceptedReply.repliedAt).toLocaleString()}</span>
                     </div>
                     <p className="text-sm whitespace-pre-line">{latestAcceptedReply.text}</p>
@@ -502,10 +572,10 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                             href={resolveApiUrl(ev.signedUrl)}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs hover:border-[var(--border-strong)]"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs hover:border-[var(--border-strong)]"
                           >
                             <FileText className="w-3.5 h-3.5 text-[var(--accent)]" />
-                            <span>Proof ({ev.mime})</span>
+                            <span>Attached Proof ({ev.mime})</span>
                           </a>
                         ))}
                       </div>
@@ -515,7 +585,9 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
 
                 {canReviewSatisfaction && (
                   <div className="p-4 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] space-y-3">
-                    <div className="text-sm font-bold">Is this reply OK for you?</div>
+                    <div className="text-sm font-bold">
+                      Does this reply satisfy your request?
+                    </div>
                     {!showRejectBox ? (
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -541,7 +613,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                         <input
                           value={feedbackReason}
                           onChange={(e) => setFeedbackReason(e.target.value)}
-                          placeholder="What is still missing?"
+                          placeholder="Specify what remains unresolved..."
                           className="w-full min-h-9 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-sm"
                         />
                         <div className="flex gap-2">
@@ -551,7 +623,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                             onClick={() => void handleFeedback(false)}
                             disabled={sendingFeedback}
                           >
-                            Reopen Case
+                            Reopen Ticket
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => setShowRejectBox(false)}>
                             Cancel
@@ -563,23 +635,23 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 )}
 
                 {["verified_resolved", "closed_final"].includes(detail.ticket.status) && (
-                  <div className="p-3 rounded-xl border border-[var(--verified-border)] bg-[var(--verified-bg)] text-[var(--verified-fg)] text-xs flex items-center gap-2">
+                  <div className="p-3.5 rounded-xl border border-[var(--verified-border)] bg-[var(--verified-bg)] text-[var(--verified-fg)] text-xs flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Verified Closed — you confirmed the reply solved this case.</span>
+                    <span>Verified Closed — marked satisfied by you.</span>
                   </div>
                 )}
 
                 {detail.ticket.status === "reopened" && (
-                  <div className="p-3 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs flex items-center gap-2">
+                  <div className="p-3.5 rounded-xl border border-[var(--reopened-border)] bg-[var(--reopened-bg)] text-[var(--reopened-fg)] text-xs flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Reopened: {detail.verificationCase?.reasons?.[0] || "Returned to Officer"}</span>
+                    <span>Reopened: {detail.verificationCase?.reasons?.[0] || "Returned for officer follow-up"}</span>
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border-hairline)]">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-xs cursor-pointer">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[var(--border-hairline)]">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-xs font-medium cursor-pointer hover:bg-[var(--bg-subtle)]">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Attach File (Optional)</span>
+                    <span>Add Attachment</span>
                     <input
                       type="file"
                       accept="image/*,application/pdf,text/plain"
@@ -590,7 +662,7 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
 
                   <details className="text-xs text-[var(--text-muted)]">
                     <summary className="cursor-pointer">
-                      State History ({timelineRes?.events.length ?? 0})
+                      Status History ({timelineRes?.events.length ?? 0})
                     </summary>
                     <div className="mt-2 space-y-1">
                       {(timelineRes?.events ?? []).map((ev) => (
@@ -606,8 +678,8 @@ export function CitizenPage({ user }: { user: MeProfile | null }) {
                 </div>
               </Card>
             ) : (
-              <Card className="p-8 text-center text-sm text-[var(--text-muted)]">
-                Select a case on the left.
+              <Card className="p-10 text-center text-sm text-[var(--text-muted)]">
+                Select a filing to view its status and replies.
               </Card>
             )}
           </div>

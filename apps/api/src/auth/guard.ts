@@ -13,6 +13,7 @@ export interface AuthUser {
   name: string;
   role: Role;
   baseRole: Role;
+  userType: "citizen" | "officer" | "judge" | null;
   language: "en" | "ta";
   isDemo: boolean;
   demoSessionId: string | null;
@@ -65,6 +66,7 @@ export async function resolveAuthFromToken(
       email: verified.email,
       name: initialName,
       role: initialRole,
+      userType: verified.isAnonymous ? "judge" : null,
       language: "en",
       isDemo: verified.isAnonymous ? 1 : 0,
       consentVersion: 1,
@@ -116,6 +118,7 @@ export async function resolveAuthFromToken(
     name: dbUser.name,
     role: effectiveRole,
     baseRole: dbUser.role as Role,
+    userType: (dbUser.userType as AuthUser["userType"]) ?? null,
     language: dbUser.language === "ta" ? "ta" : "en",
     isDemo: dbUser.isDemo === 1,
     demoSessionId: dbUser.demoSessionId,

@@ -161,7 +161,8 @@ export const OfficerContactLogSchema = z.object({
 
 export const ProfilePatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  role: z.enum(["citizen", "officer"]).optional(),
+  role: z.enum(["citizen", "officer", "judge"]).optional(),
+  user_type: z.enum(["citizen", "officer", "judge"]).optional(),
   language: z.enum(["en", "ta"]).optional(),
   phone: z.string().max(32).nullable().optional(),
   safe_word: z.string().min(2).max(60).nullable().optional()

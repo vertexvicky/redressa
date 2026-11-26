@@ -21,14 +21,20 @@ import { transition } from "../services/transition.js";
 
 export const officerRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
-officerRoutes.use("*", requireRole("officer", "admin"));
+officerRoutes.use("*", requireRole("officer", "judge", "admin"));
 
 officerRoutes.get("/tickets", async (c) => {
   const user = c.get("user")!;
   const db = c.get("db");
 
   let rows: Array<typeof tickets.$inferSelect>;
-  if (user.departmentId) {
+  if (user.role === "judge") {
+    rows = await db
+      .select()
+      .from(tickets)
+      .where(and(eq(tickets.citizenId, user.id), ne(tickets.status, "draft")))
+      .orderBy(desc(tickets.createdAt));
+  } else if (user.departmentId) {
     rows = await db
       .select()
       .from(tickets)

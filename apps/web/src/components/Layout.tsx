@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Menu, ShieldCheck, X } from "lucide-react";
+import { Menu, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink } from "react-router-dom";
 import type { Role } from "@redressa/shared";
@@ -11,6 +11,8 @@ export interface MeProfile {
   name: string;
   role: Role;
   baseRole: Role;
+  userType?: "citizen" | "officer" | "judge" | null;
+  roleLocked?: boolean;
   language: "en" | "ta";
   isDemo: boolean;
   demoSessionId: string | null;
@@ -21,17 +23,21 @@ export interface MeProfile {
 interface LayoutProps {
   user: MeProfile | null;
   onLogout: () => void;
-  onSwitchRole?: (role: "citizen" | "officer") => Promise<void>;
+  onOpenJudge?: () => void;
   children: ReactNode;
 }
 
-export function Layout({ user, onLogout, onSwitchRole, children }: LayoutProps) {
+export function Layout({ user, onLogout, onOpenJudge, children }: LayoutProps) {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     { to: "/", label: t("nav.home"), show: true },
-    { to: "/citizen", label: "User Cases", show: Boolean(user) },
+    {
+      to: "/citizen",
+      label: "User Cases",
+      show: Boolean(user && (user.role === "citizen" || user.role === "admin"))
+    },
     {
       to: "/officer",
       label: t("nav.officer"),
@@ -85,23 +91,11 @@ export function Layout({ user, onLogout, onSwitchRole, children }: LayoutProps) 
           </div>
 
           <div className="flex items-center gap-2">
-            {user && onSwitchRole && (
-              <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-hairline)]">
-                {(["citizen", "officer"] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => void onSwitchRole(r)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all ${
-                      user.role === r
-                        ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
-                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    {r === "citizen" ? "User" : "Officer"}
-                  </button>
-                ))}
-              </div>
+            {user?.role === "judge" && onOpenJudge && (
+              <Button size="sm" variant="subtle" onClick={onOpenJudge}>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Judge Walkthrough</span>
+              </Button>
             )}
 
             <LanguageToggle />
@@ -153,31 +147,24 @@ export function Layout({ user, onLogout, onSwitchRole, children }: LayoutProps) 
                 </NavLink>
               ))}
             </div>
-            {user && onSwitchRole && (
-              <div className="pt-2 border-t border-[var(--border-hairline)]">
-                <div className="text-xs font-medium text-[var(--text-muted)] mb-2">
-                  Switch Workspace
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["citizen", "officer"] as const).map((r) => (
-                    <Button
-                      key={r}
-                      size="sm"
-                      variant={user.role === r ? "primary" : "secondary"}
-                      onClick={() => {
-                        void onSwitchRole(r);
-                        setMobileOpen(false);
-                      }}
-                    >
-                      {r === "citizen" ? "User" : "Officer"}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+            {user?.role === "judge" && onOpenJudge && (
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  onOpenJudge();
+                  setMobileOpen(false);
+                }}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Open Judge Walkthrough</span>
+              </Button>
             )}
             {user && (
               <div className="pt-2 border-t border-[var(--border-hairline)] flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">{user.name}</span>
+                <span className="text-xs text-[var(--text-secondary)]">
+                  {user.name} ({user.role === "citizen" ? "User" : user.role})
+                </span>
                 <Button
                   size="sm"
                   variant="secondary"
